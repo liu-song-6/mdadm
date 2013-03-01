@@ -1126,7 +1126,7 @@ struct pol_rule {
 };
 
 extern char rule_policy[], rule_part[];
-extern char rule_path[], rule_type[];
+extern char rule_path[], rule_slot[], rule_type[];
 extern char type_part[], type_disk[];
 
 extern void policyline(char *line, char *type);
