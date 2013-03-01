@@ -110,6 +110,7 @@ LDLIBS=-ldl
 INSTALL = /usr/bin/install
 DESTDIR =
 BINDIR  = /sbin
+LIBDIR	= /lib/mdadm
 MANDIR  = /usr/share/man
 MAN4DIR = $(MANDIR)/man4
 MAN5DIR = $(MANDIR)/man5
@@ -292,6 +293,8 @@ install-man: mdadm.8 md.4 mdadm.conf.5 mdmon.8
 	$(INSTALL) -D -m 644 mdadm.conf.5 $(DESTDIR)$(MAN5DIR)/mdadm.conf.5
 
 install-udev: udev-md-raid-arrays.rules udev-md-raid-assembly.rules
+	$(INSTALL) -D -m 655 ses_slot_id $(DESTDIR)$(LIBDIR)/ses_slot_id
+	$(INSTALL) -D -m 644 udev-enclosure-slot.rules $(DESTDIR)$(UDEVDIR)/rules.d/62-md-enclosure-slot.rules
 	@for file in 63-md-raid-arrays.rules 64-md-raid-assembly.rules ; \
 	do sed -e 's,BINDIR,$(BINDIR),g' udev-$${file#??-} > .install.tmp.1 && \
 	   $(ECHO) $(INSTALL) -D -m 644 udev-$${file#??-} $(DESTDIR)$(UDEVDIR)/rules.d/$$file ; \

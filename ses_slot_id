@@ -1,0 +1,135 @@
+#!/bin/sh
+
+# lookup ses slot information for a given device a /dev/disk/by-slot to
+# supplement the not-always-persistent path in the sas case
+# based on the the original shell script implementation of path_id
+
+SYSFS=/sys
+RESULT=1
+TYPE=
+OPWD="`pwd`"
+full_sysfs_path=
+full_sysfs_device_path=
+
+if [ -z "$1" ] ; then
+	exit 1
+fi
+
+DEVPATH=$1
+
+if [ ! -e $SYSFS$DEVPATH/dev ] ; then
+	exit 1
+fi
+
+case "$DEVPATH" in
+	/devices/*)
+		cd "$SYSFS$DEVPATH/subsystem";
+		TYPE="`pwd -P`"
+		cd "$OPWD"
+		TYPE="${TYPE##*/}"
+		;;
+	/class/*)
+		TYPE="${DEVPATH#/class/}"
+		TYPE="${TYPE%%/*}"
+		;;
+	/block/*)
+		TYPE=block
+		;;
+	*)
+		exit 1
+		;;
+esac
+
+handle_ses () {
+	: handle_ses $*
+	local DEV=$1
+
+	ses_dev=$(find $DEV -maxdepth 1 -name 'enclosure_device:*' -print -quit)
+	ses_dev=$(readlink -f "$ses_dev")
+	enc_dev="${ses_dev%/*}"
+
+	if [ -f "$ses_dev/slot" ]; then
+		read slot < "$ses_dev/slot"
+	fi
+
+	if [ -f "$enc_dev/id" ]; then
+		read enclosure_id < "$enc_dev/id"
+	fi
+
+	if [ -z "$slot" -o -z "$enclosure_id" ]; then
+		: no enclosure device
+		D=
+		RESULT=1
+		return
+	fi
+
+	d="enclosure-${enclosure_id}-slot${slot}"
+	D=
+	RESULT=0
+}
+
+handle_device () {
+	full_sysfs_path="$SYSFS$DEVPATH"
+	case "$DEVPATH" in
+		/devices/*)
+			# new sysfs layout
+			if [ -L $full_sysfs_path/subsystem ]; then
+				full_sysfs_path="${full_sysfs_path%/*}"
+				cd "$full_sysfs_path/subsystem";
+				subsys="`pwd -P`"
+				cd "$OPWD"
+				subsys="${subsys##*/}"
+				if [ "$subsys" = "block" ]; then
+					# parent is "block", it's a partition, move one up
+				full_sysfs_path="${full_sysfs_path%/*}"
+				fi
+				cd $full_sysfs_path
+			fi
+			;;
+		*)
+			# old sysfs layout
+			if [ ! -L $full_sysfs_path/device ] ; then
+				if [ -f $full_sysfs_path/range ] ; then return ; fi
+				full_sysfs_path="${full_sysfs_path%/*}"
+				: full_sysfs_path "$full_sysfs_path"
+				if [ ! -L $full_sysfs_path/device -o ! -f $full_sysfs_path/dev ] ; then
+					return
+				fi
+			fi
+			cd $full_sysfs_path/device
+			;;
+	esac
+	full_sysfs_device_path="`pwd -P`"
+	cd "$OPWD"
+	D=$full_sysfs_device_path
+	while [ ! -z "$D" ] ; do
+		case "$D" in
+			*/end_device-[0-9]*:[0-9]*:[0-9]*/*)
+				handle_ses "$D"
+				if [ $RESULT = 0 ]; then
+					found_ses="yes"
+				fi
+				;;
+			*/devices)
+				D=
+				;;
+			*)
+				: not handled
+				RESULT=1
+				return
+				;;
+		esac
+	done
+}
+
+case "$TYPE" in
+	block)
+		handle_device
+		echo "ID_SLOT='$d'"
+		;;
+	*)
+		RESULT=1
+		;;
+esac
+
+exit $RESULT
