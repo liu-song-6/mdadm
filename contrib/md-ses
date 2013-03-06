@@ -1,0 +1,310 @@
+#!/usr/bin/env python
+import os
+import sys
+import stat
+from glob import glob
+from optparse import OptionParser
+
+"""
+md-ses: update ses leds in response to mdadm --monitor events
+
+1/ at startup: set the "fault" indicator for every block device in a
+   ses slot that is also in a defined domain
+2/ at failure: set the "fault" indicator for the specified device
+3/ at spare active: clear the "fault" indicator for the specified
+   device
+
+partitioned devices are ignored
+"""
+
+LOGFILE = None
+
+def log(msg):
+    if LOGFILE != None:
+        LOGFILE.write('%s: %s' % (sys.argv[0], msg))
+
+def devt_to_devpath(devt):
+    # where devt is a string of "<major:minor>"
+    path = "/sys/dev/block/%s/device" % devt
+    if not os.path.exists(path):
+         return None
+    path = os.path.realpath(path)
+    return path
+
+def devname_to_devpath(name):
+    if not name:
+        return None
+
+    st = os.stat(name)
+    if not stat.S_ISBLK(st.st_mode):
+        return None
+    major = os.major(st.st_rdev)
+    minor = os.minor(st.st_rdev)
+    # note this path will be missing for partitions
+    return devt_to_devpath('%s:%s' % (major, minor))
+
+def devpath_to_sespath(path):
+    if not path:
+        return None
+    slot = glob('%s/enclosure_device:*' % path)
+    if len(slot) != 1:
+        return None
+    return os.path.realpath(slot[0])
+
+def devname_to_sespath(name):
+    dp = devname_to_devpath(name)
+    sp = devpath_to_sespath(dp)
+    return sp
+
+def parse_config(config_name, header, field_name):
+    """
+    Take mdadm config lines like:
+    POLICY domain=domain0 slot=X
+    POLICY domain=domain0 slot=Y
+    ENCLOSURE enclosure0 id=X
+
+    ...and create a dictionary of name and field_name values
+    For example parse_config(cfg, 'POLICY', 'slot=') for the above example
+    yields:
+    { 'POLICY': [ X, Y ] }
+
+    ...for parse_config(cfg, 'ENCLOSURE', 'id=') yields:
+    { 'enclosure0': [ X ] }
+    """
+
+    def parse_field(field_name, line):
+        (key, val) = (None, None)
+        for f in line.split():
+            if f.startswith(field_name):
+                (tempkey, val) = f.split('=')
+            elif not '=' in f:
+                key = f
+        return (key, val)
+
+
+    def finish_line(line, field_name, items):
+        if line != None and field_name in line:
+            (key, val) = parse_field(field_name, line)
+            if key == None or val == None:
+                return
+            if key in items:
+                items[key].append(val)
+            else:
+                items[key] = [val]
+
+    items = {}
+    with open(config_name, 'r') as config_file:
+        line = None
+        for l in config_file:
+            l = l.rstrip()
+            if l.startswith(header):
+                finish_line(line, field_name, items)
+                line = l
+                continue
+            if not line:
+                continue
+            # continue policy lines
+            if len(l) and l[0].isspace():
+                line = line + l
+            else:
+                finish_line(line, field_name, items)
+                line = None
+        finish_line(line, field_name, items)
+    return items
+
+"""
+assumes that POLICY lines only include named enclosures or ids, not paths
+"""
+def enclosure_ids_from_domains(config_name):
+    slots = parse_config(config_name, 'POLICY', 'slot=')
+    enclosures = parse_config(config_name, 'ENCLOSURE', 'id=')
+
+    all_slots = []
+    for s in slots.values():
+        all_slots = all_slots + s
+
+    ids = []
+    for s in all_slots:
+        if s in enclosures:
+            s = enclosures[s][0]
+        ids.append(s)
+    return ids
+
+def parse_domains(config_name):
+    """
+    Return a set of all disks (by "major:minor") that the configuration file cares about
+    to be compared against the rdevs read from the active md devices
+    """
+    device_list = []
+    for enc_id in enclosure_ids_from_domains(config_name):
+        by_slot = 'enclosure-%s-slot*' % enc_id
+        for f in glob('/dev/disk/by-slot/%s' % by_slot):
+            st = os.stat(f)
+            dev = "%s:%s" % (os.major(st.st_rdev), os.minor(st.st_rdev))
+            device_list.append(dev)
+
+    return set(device_list)
+
+def parse_rdevs(check_state):
+    device_list = []
+    for md in glob('/sys/block/md*'):
+        for rd in glob('%s/md/rd*' % md):
+            with open('%s/block/dev' % rd, 'r') as _dev:
+                dev = _dev.readline().rstrip()
+            with open('%s/state' % rd , 'r') as _state:
+                state = _state.readline().rstrip()
+            if check_state == None or state == check_state:
+                device_list.append(dev)
+    return set(device_list)
+
+def update_ses(device, fault, sp=None):
+    if not sp:
+        sp = devname_to_sespath(device)
+    if not sp:
+        log('unable to determine slot for %s\n' % device)
+        return 1
+
+    log('write \'%d\' to %s\n' % (fault, sp))
+    with open('%s/fault' % sp, 'w') as f:
+        f.write('%d\n' % fault)
+
+    return 0
+
+def debug_event(event):
+    dp = devname_to_devpath(event.device)
+    sp = devpath_to_sespath(dp)
+    log('name: %s array: %s, dev: %s ses: %s\n' % (
+             event.name, event.array, event.device,
+             sp
+           )
+    )
+    device_set = parse_domains(event.config)
+    active_set = parse_rdevs('in_sync')
+    print device_set - active_set
+
+    return 0
+
+def parse_enclosures(config_name):
+    path = '/sys/class/enclosure'
+    slots = []
+    ids = enclosure_ids_from_domains(config_name)
+    for e in glob('%s/*' % path):
+        enc_id = None
+        with open('%s/id' % e) as _id:
+            enc_id = _id.readline().rstrip()
+        if not enc_id in ids:
+            continue
+        for slot in glob('%s/*' % e):
+            if os.path.exists('%s/slot' % slot):
+                slots.append(os.path.realpath(slot))
+    return set(slots)
+
+def ignore_event(event):
+    return 0
+
+def handle_active(event):
+    return update_ses(event.device, 0)
+
+def handle_fail(event):
+    return update_ses(event.device, 1)
+
+def handle_new(event):
+    device_set = parse_domains(event.config)
+    active_devs = parse_rdevs('in_sync')
+
+    active_slots = []
+    for devt in device_set & active_devs:
+        dp = devt_to_devpath(devt)
+        sp = devpath_to_sespath(dp)
+        active_slots.append(sp)
+        update_ses(None, 0, sp)
+
+    for sp in parse_enclosures(event.config) - set(active_slots):
+        update_ses(None, 1, sp)
+
+    return 0
+
+def handle_missing_hdd(event):
+    for sp in parse_enclosures(event.config):
+        if not os.path.exists(sp + '/device'):
+            update_ses(None, 1, sp)
+    return 0
+
+class MDEvent:
+    event_fn = {
+                 'DeviceDisappeared':   ignore_event,
+                 'HDDDisappeared':      handle_missing_hdd,
+                 'RebuildStarted':      ignore_event,
+                 'RebuildNN':           ignore_event,
+                 'RebuildFinished':     ignore_event,
+                 'Fail':                handle_fail,
+                 'FailSpare':           handle_fail,
+                 'SpareActive':         handle_active,
+                 'SpareSync':           handle_active,
+                 'NewArray':            handle_new,
+                 'DegradedArray':       ignore_event,
+                 'MoveSpare':           ignore_event,
+                 'SparesMissing':       ignore_event,
+                 'TestMessage':         ignore_event,
+               }
+    def __init__(self, event, array, device, conf):
+        self.name = event
+        self.array = array
+        self.device = device
+        self.config = conf
+    def handle(self):
+        try:
+            handler = MDEvent.event_fn[self.name]
+            if handler == ignore_event:
+                log('ignoring %s for array %s (dev: %s)\n' % (self.name, self.array, self.device))
+            else:
+                log('handling %s for array %s (dev: %s)\n' % (self.name, self.array, self.device))
+            return handler(self)
+        except KeyError:
+            log('unsupported event \'%s\'\n' % self.name)
+            return 1
+
+CONF1 = '/etc/mdadm.conf'
+CONF2 = '/etc/mdadm/mdadm.conf'
+
+def main():
+    parser = OptionParser()
+    parser.add_option("-c", "--config", type="string", dest="config",
+                      help="override configuration file location", default='<default>')
+    parser.add_option("-l", "--log", type="string", dest="log",
+                      help="log actions to <file>", default=None)
+    (options, args) = parser.parse_args()
+
+    if len(args) <= 1:
+        sys.stderr.write('usage: %s <md event name> <array> [device]\n' % sys.argv[0])
+        return 1
+
+    if len(args) > 1:
+        event = args[0]
+        array = args[1]
+        device = None
+
+    if len(args) > 2:
+        device = args[2]
+
+    if options.config == '<default>':
+        if os.path.exists(CONF1):
+            options.config = CONF1
+        elif os.path.exists(CONF2):
+            options.config = CONF2
+
+    global LOGFILE
+    if LOGFILE != None:
+        LOGFILE = open(LOGFILE, 'a')
+    elif options.log == 'stderr':
+        LOGFILE = sys.stderr
+    elif options.log == 'stdout':
+        LOGFILE = sys.stdout
+    elif options.log != None:
+        LOGFILE = open(options.log, 'a')
+
+    md = MDEvent(event, array, device, options.config)
+    return md.handle()
+
+if __name__ == "__main__":
+    sys.exit(main())
