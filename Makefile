@@ -270,7 +270,7 @@ $(MON_OBJS) : $(INCL) mdmon.h
 sha1.o : sha1.c sha1.h md5.h
 	$(CC) $(CFLAGS) -DHAVE_STDINT_H -o sha1.o -c sha1.c
 
-install : mdadm mdmon install-man install-udev
+install : mdadm mdmon install-man install-udev install-contrib
 	$(INSTALL) -D $(STRIP) -m 755 mdadm $(DESTDIR)$(BINDIR)/mdadm
 	$(INSTALL) -D $(STRIP) -m 755 mdmon $(DESTDIR)$(BINDIR)/mdmon
 
@@ -291,6 +291,9 @@ install-man: mdadm.8 md.4 mdadm.conf.5 mdmon.8
 	$(INSTALL) -D -m 644 mdmon.8 $(DESTDIR)$(MAN8DIR)/mdmon.8
 	$(INSTALL) -D -m 644 md.4 $(DESTDIR)$(MAN4DIR)/md.4
 	$(INSTALL) -D -m 644 mdadm.conf.5 $(DESTDIR)$(MAN5DIR)/mdadm.conf.5
+
+install-contrib: contrib/md-ses
+	$(INSTALL) -D -m 755 contrib/md-ses $(DESTDIR)/usr/share/mdadm/md-ses
 
 udev-enclosure-slot.rules: udev-enclosure-slot.rules.in udev-workaround-sysfs-deprecated.in Makefile
 	@echo "$@: generate"

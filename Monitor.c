@@ -666,6 +666,9 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 				alert("FailSpare", dev, dv, ainfo);
 			else if ((newstate&change)&(1<<MD_DISK_SYNC))
 				alert("SpareActive", dev, dv, ainfo);
+			else if ((st->devstate[i]&change)&(1<<MD_DISK_REMOVED))
+				alert("SpareSync", dev, dv, ainfo);
+
 		}
 		st->devstate[i] = newstate;
 		st->devid[i] = makedev(disc.major, disc.minor);
