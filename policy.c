@@ -873,7 +873,7 @@ int write_rule(struct rule *rule, int fd, int force_part)
 
 /* Generate single entry in udev rule basing on POLICY line found in config
  * file. Take only those with paths, only first occurrence if paths are equal
- * and if actions supports handling of spares (>=act_spare_same_slot)
+ * and if actions supports handling of spares (>=act_spare)
  */
 int generate_entries(int fd)
 {
@@ -890,7 +890,7 @@ int generate_entries(int fd)
 		/* only policies with paths and with actions supporting
 		 * bare disks are considered */
 		loop_value = find_rule(loop->rule, pol_act);
-		if (!loop_value || map_act(loop_value) < act_spare_same_slot)
+		if (!loop_value || map_act(loop_value) < act_spare)
 			continue;
 		rule = find_path_rule(loop->rule);
 		if (!rule)
@@ -900,7 +900,7 @@ int generate_entries(int fd)
 			if (dup->type != rule_policy && loop->type != rule_part)
 				continue;
 			dup_value = find_rule(dup->rule, pol_act);
-			if (!dup_value || map_act(dup_value) < act_spare_same_slot)
+			if (!dup_value || map_act(dup_value) < act_spare)
 				continue;
 			rule = find_path_rule(dup->rule);
 			if (!rule)
