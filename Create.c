@@ -306,7 +306,13 @@ int Create(struct supertype *st, char *mddev,
 			continue;
 		}
 		if (data_offset == VARIABLE_OFFSET) {
-			doff = strchr(dname, ':');
+			doff = strrchr(dname, ':');
+			if (stat(dname, &stb) == 0) {
+				pr_err("cannot determine if %s is a device name, or a device with a data-offset argument of '%s'\n",
+				       dname, doff+1);
+				pr_err("check that you have specified a data-offset for all array members\n");
+				exit(2);
+			}
 			if (doff) {
 				*doff++ = 0;
 				dv->data_offset = parse_size(doff);
