@@ -1935,8 +1935,9 @@ static int detail_platform_imsm(int verbose, int enumerate_only, char *controlle
 		if (controller_path && (compare_paths(hba->path, controller_path) != 0))
 			continue;
 		if (!find_imsm_capability(hba)) {
-			pr_err("imsm capabilities not found for controller: %s (type %s)\n",
-				hba->path, get_sys_dev_type(hba->type));
+			if (verbose > 0)
+				pr_err("imsm capabilities not found for controller: %s (type %s)\n",
+				       hba->path, get_sys_dev_type(hba->type));
 			continue;
 		}
 		result = 0;
