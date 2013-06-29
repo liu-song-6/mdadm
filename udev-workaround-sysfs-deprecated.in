@@ -1,0 +1,2 @@
+ACTION=="change", SUBSYSTEM=="scsi", ENV{DEVTYPE}=="scsi_device", TEST=="scsi_disk", RUN="forward-scsi-uevents %p"
+
