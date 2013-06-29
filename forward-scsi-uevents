@@ -1,0 +1,14 @@
+#!/bin/sh
+
+# on sysfs-deprecated hosts the default udev rules are unable to forward
+# udev events to the block device, this is a hack to enable this
+# forwarding by searching for the matching device path
+
+for i in /sys/block/sd*
+do
+	DEV=$(readlink -f $i/device)
+	if [ $DEV = /sys$1 ]; then
+		echo "change" > $i/uevent
+		break
+	fi
+done
