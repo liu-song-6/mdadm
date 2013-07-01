@@ -1147,6 +1147,12 @@ struct superswitch *superlist[] =
 
 #if !defined(MDASSEMBLE) || defined(MDASSEMBLE) && defined(MDASSEMBLE_AUTO)
 
+const struct platform_ops *platform_list[] =
+{
+	&imsm_platform,
+	NULL,
+};
+
 struct supertype *super_by_fd(int fd, char **subarrayp)
 {
 	mdu_array_info_t array;

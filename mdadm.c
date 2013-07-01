@@ -1492,7 +1492,14 @@ int main(int argc, char *argv[])
 			}
 			rv = Examine(devlist, &c, ss);
 		} else if (devmode == DetailPlatform) {
-			rv = Detail_Platform(ss ? ss->ss : NULL, ss ? c.scan : 1,
+			const struct platform_ops *platform;
+
+			if (ss)
+				platform = ss->ss->platform;
+			else
+				platform = NULL;
+
+			rv = Detail_Platform(platform, platform ? c.scan : 1,
 					     c.verbose, c.export,
 					     devlist ? devlist->devname : NULL);
 		} else if (devlist == NULL) {

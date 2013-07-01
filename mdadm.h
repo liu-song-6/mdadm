@@ -687,6 +687,17 @@ struct reshape {
 	unsigned long long new_size; /* New size of array in sectors */
 };
 
+/* Platform details describe hardware / firmware capabilites and
+ * limitations.  They can be tied to a metadata format.  For example,
+ * system firmware with a set of raid capabilities and expected
+ * controller, or describe the topology disk enclosures.
+ */
+extern const struct platform_ops {
+	int (*detail)(int verbose, int enumerate_only, char *hwdevice);
+	int (*export_detail)(int verbose, char *hwdevice);
+	char *name;
+} *platform_list[];
+
 /* A superswitch provides entry point the a metadata handler.
  *
  * The superswitch primarily operates on some "metadata" that
@@ -734,8 +745,7 @@ extern struct superswitch {
 	void (*export_detail_super)(struct supertype *st);
 
 	/* Optional: platform hardware / firmware details */
-	int (*detail_platform)(int verbose, int enumerate_only, char *controller_path);
-	int (*export_detail_platform)(int verbose, char *controller_path);
+	const struct platform_ops *platform;
 
 	/* Used:
 	 *   to get uuid to storing in bitmap metadata
@@ -1008,6 +1018,8 @@ extern struct superswitch super0, super1;
 extern struct superswitch super_imsm, super_ddf;
 extern struct superswitch mbr, gpt;
 
+extern const struct platform_ops imsm_platform;
+
 struct metadata_update {
 	int	len;
 	char	*buf;
@@ -1263,7 +1275,8 @@ extern int Create(struct supertype *st, char *mddev,
 		  unsigned long long data_offset);
 
 extern int Detail(char *dev, struct context *c);
-extern int Detail_Platform(struct superswitch *ss, int scan, int verbose, int export, char *controller_path);
+extern int Detail_Platform(const struct platform_ops *platform, int scan, int verbose,
+			   int export, char *controller_path);
 extern int Query(char *dev);
 extern int ExamineBadblocks(char *devname, int brief, struct supertype *forcest);
 extern int Examine(struct mddev_dev *devlist, struct context *c,

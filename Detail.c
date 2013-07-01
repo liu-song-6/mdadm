@@ -717,47 +717,44 @@ out:
 	return rv;
 }
 
-int Detail_Platform(struct superswitch *ss, int scan, int verbose, int export, char *controller_path)
+int Detail_Platform(const struct platform_ops *platform, int scan, int verbose, int export, char *controller_path)
 {
-	/* display platform capabilities for the given metadata format
-	 * 'scan' in this context means iterate over all metadata types
+	/* display platform capabilities
+	 * 'scan' in this context means iterate over all platform types
 	 */
-	int i;
-	int err = 1;
+	struct platform_ops const **p;
+	int err = 0;
 
-	if (ss && export && ss->export_detail_platform)
-		err = ss->export_detail_platform(verbose, controller_path);
-	else if (ss && ss->detail_platform)
-		err = ss->detail_platform(verbose, 0, controller_path);
-	else if (ss) {
+	if (platform && verbose > 0)
+		pr_err("checking for %s platform components\n",
+			platform->name);
+
+	if (platform && export)
+		err = platform->export_detail(verbose, controller_path);
+	else if (platform)
+		err = platform->detail(verbose, 0, controller_path);
+	else if (!scan) {
 		if (verbose > 0)
-			pr_err("%s metadata is platform independent\n",
-				ss->name ? : "[no name]");
-	} else if (!scan) {
-		if (verbose > 0)
-			pr_err("specify a metadata type or --scan\n");
+			pr_err("no platform components found\n");
 	}
 
 	if (!scan)
 		return err;
 
-	err = 0;
-	for (i = 0; superlist[i]; i++) {
-		struct superswitch *meta = superlist[i];
-
-		if (meta == ss)
+	for (p = platform_list; p; p++) {
+		/* enumerated above */
+		if (*p == platform)
 			continue;
+
 		if (verbose > 0)
-			pr_err("checking metadata %s\n",
-				meta->name ? : "[no name]");
-		if (!meta->detail_platform) {
-			if (verbose > 0)
-				pr_err("%s metadata is platform independent\n",
-					meta->name ? : "[no name]");
-		} else if (export && meta->export_detail_platform) {
-			err |= meta->export_detail_platform(verbose, controller_path);
-		} else
-			err |= meta->detail_platform(verbose, 0, controller_path);
+			pr_err("checking for %s platform components\n",
+				(*p)->name);
+
+		if (export)
+			err |= (*p)->export_detail(verbose, controller_path);
+		else
+			err |= (*p)->detail(verbose, 0, controller_path);
+
 	}
 
 	return err;
