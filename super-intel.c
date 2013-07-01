@@ -10606,6 +10606,11 @@ abort:
 	return ret_val;
 }
 
+const struct platform_ops imsm_platform = {
+	.detail = detail_platform_imsm,
+	.export_detail = export_detail_platform_imsm,
+	.name = "imsm",
+};
 #endif /* MDASSEMBLE */
 
 struct superswitch super_imsm = {
@@ -10620,8 +10625,6 @@ struct superswitch super_imsm = {
 	.validate_geometry = validate_geometry_imsm,
 	.add_to_super	= add_to_super_imsm,
 	.remove_from_super = remove_from_super_imsm,
-	.detail_platform = detail_platform_imsm,
-	.export_detail_platform = export_detail_platform_imsm,
 	.kill_subarray = kill_subarray_imsm,
 	.update_subarray = update_subarray_imsm,
 	.load_container	= load_container_imsm,
@@ -10631,6 +10634,7 @@ struct superswitch super_imsm = {
 	.manage_reshape = imsm_manage_reshape,
 	.recover_backup = recover_backup_imsm,
 	.copy_metadata = copy_metadata_imsm,
+	.platform = &imsm_platform,
 #endif
 	.match_home	= match_home_imsm,
 	.uuid_from_super= uuid_from_super_imsm,
