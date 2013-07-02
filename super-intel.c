@@ -3234,8 +3234,6 @@ static void fd2devname(int fd, char *name)
 	}
 }
 
-extern int scsi_get_serial(int fd, void *buf, size_t buf_len);
-
 static int imsm_read_serial(int fd, char *devname,
 			    __u8 serial[MAX_RAID_SERIAL_LEN])
 {

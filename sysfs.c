@@ -27,20 +27,25 @@
 #include	<dirent.h>
 #include	<ctype.h>
 
-int load_sys(char *path, char *buf)
+int load_sys_n(char *path, char *buf, int len)
 {
 	int fd = open(path, O_RDONLY);
 	int n;
 	if (fd < 0)
 		return -1;
-	n = read(fd, buf, 1024);
+	n = read(fd, buf, len);
 	close(fd);
-	if (n <0 || n >= 1024)
+	if (n <0 || n >= len)
 		return -1;
 	buf[n] = 0;
 	if (n && buf[n-1] == '\n')
 		buf[n-1] = 0;
 	return 0;
+}
+
+int load_sys(char *path, char *buf)
+{
+	return load_sys_n(path, buf, 1024);
 }
 
 void sysfs_free(struct mdinfo *sra)

@@ -358,6 +358,7 @@ enum special_options {
 	AutoDetect,
 	Waitclean,
 	DetailPlatform,
+	Enclosure,
 	KillSubarray,
 	UpdateSubarray,
 	IncrementalPath,
@@ -484,6 +485,7 @@ struct context {
 	char	*action;
 	int	nodes;
 	char	*homecluster;
+	char	*enclosure;
 };
 
 struct shape {
@@ -624,10 +626,12 @@ extern int sysfs_set_safemode(struct mdinfo *sra, unsigned long ms);
 extern int sysfs_set_array(struct mdinfo *info, int vers);
 extern int sysfs_add_disk(struct mdinfo *sra, struct mdinfo *sd, int resume);
 extern int sysfs_disk_to_scsi_id(int fd, __u32 *id);
+extern int scsi_get_serial(int fd, void *buf, size_t buf_len);
 extern int sysfs_unique_holder(char *devnm, long rdev);
 extern int sysfs_freeze_array(struct mdinfo *sra);
 extern int sysfs_wait(int fd, int *msec);
 extern int load_sys(char *path, char *buf);
+extern int load_sys_n(char *path, char *buf, int len);
 extern int reshape_prepare_fdlist(char *devname,
 				  struct mdinfo *sra,
 				  int raid_disks,
@@ -1044,6 +1048,7 @@ extern struct superswitch super_imsm, super_ddf;
 extern struct superswitch mbr, gpt;
 
 extern const struct platform_ops imsm_platform;
+extern const struct platform_ops enclosure_platform;
 
 struct metadata_update {
 	int	len;

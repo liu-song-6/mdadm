@@ -154,6 +154,14 @@ int main(int argc, char *argv[])
 		case 'Y': c.export++;
 			continue;
 
+		case Enclosure:
+			  if (c.enclosure) {
+				  pr_err("--enclosure already specified\n");
+				  exit(2);
+			  }
+			  c.enclosure = optarg ? optarg : "scan";
+			  continue;
+
 		case HomeHost:
 			if (strcasecmp(optarg, "<ignore>") == 0)
 				c.require_homehost = 0;
@@ -1492,16 +1500,38 @@ int main(int argc, char *argv[])
 			}
 			rv = Examine(devlist, &c, ss);
 		} else if (devmode == DetailPlatform) {
+			char *controller = devlist ? devlist->devname : NULL;
 			const struct platform_ops *platform;
+			int scan, rv = 0;
 
-			if (ss)
-				platform = ss->ss->platform;
+			if (ss || c.enclosure)
+				scan = c.scan;
 			else
-				platform = NULL;
+				scan = 1;
 
-			rv = Detail_Platform(platform, platform ? c.scan : 1,
-					     c.verbose, c.export,
-					     devlist ? devlist->devname : NULL);
+			if (scan) {
+				rv = Detail_Platform(NULL, scan, c.verbose,
+						      c.export, controller);
+			} else {
+				/* metadata format specific details that
+				 * may be tied to a given controller
+				 */
+				if (ss) {
+					platform = ss->ss->platform;
+					rv = Detail_Platform(platform, scan,
+							     c.verbose, c.export,
+							     controller);
+				}
+				/* detail given enclosure or scan all
+				 * enclosures
+				 */
+				if (c.enclosure) {
+					platform = &enclosure_platform;
+					rv |= Detail_Platform(platform, scan,
+							      c.verbose, c.export,
+							      c.enclosure);
+				}
+			}
 		} else if (devlist == NULL) {
 			if (devmode == 'S' && c.scan)
 				rv = stop_scan(c.verbose);
