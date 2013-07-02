@@ -1150,6 +1150,7 @@ struct superswitch *superlist[] =
 const struct platform_ops *platform_list[] =
 {
 	&imsm_platform,
+	&enclosure_platform,
 	NULL,
 };
 

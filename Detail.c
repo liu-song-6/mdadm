@@ -717,7 +717,7 @@ out:
 	return rv;
 }
 
-int Detail_Platform(const struct platform_ops *platform, int scan, int verbose, int export, char *controller_path)
+int Detail_Platform(const struct platform_ops *platform, int scan, int verbose, int export, char *hwdevice)
 {
 	/* display platform capabilities
 	 * 'scan' in this context means iterate over all platform types
@@ -730,9 +730,9 @@ int Detail_Platform(const struct platform_ops *platform, int scan, int verbose, 
 			platform->name);
 
 	if (platform && export)
-		err = platform->export_detail(verbose, controller_path);
+		err = platform->export_detail(verbose, hwdevice);
 	else if (platform)
-		err = platform->detail(verbose, 0, controller_path);
+		err = platform->detail(verbose, 0, hwdevice);
 	else if (!scan) {
 		if (verbose > 0)
 			pr_err("no platform components found\n");
@@ -741,7 +741,7 @@ int Detail_Platform(const struct platform_ops *platform, int scan, int verbose, 
 	if (!scan)
 		return err;
 
-	for (p = platform_list; p; p++) {
+	for (p = platform_list; *p; p++) {
 		/* enumerated above */
 		if (*p == platform)
 			continue;
@@ -751,9 +751,9 @@ int Detail_Platform(const struct platform_ops *platform, int scan, int verbose, 
 				(*p)->name);
 
 		if (export)
-			err |= (*p)->export_detail(verbose, controller_path);
+			err |= (*p)->export_detail(verbose, hwdevice);
 		else
-			err |= (*p)->detail(verbose, 0, controller_path);
+			err |= (*p)->detail(verbose, 0, hwdevice);
 
 	}
 

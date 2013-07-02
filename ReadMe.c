@@ -97,6 +97,7 @@ struct option long_options[] = {
     {"examine-bitmap", 0, 0, 'X'},
     {"auto-detect", 0, 0, AutoDetect},
     {"detail-platform", 0, 0, DetailPlatform},
+    {"enclosure", 2, 0, Enclosure},
     {"kill-subarray", 1, 0, KillSubarray},
     {"update-subarray", 1, 0, UpdateSubarray},
     {"udev-rules", 2, 0, UdevRules},
@@ -502,6 +503,7 @@ char Help_misc[] =
 "                       device relates to the md driver\n"
 "  --detail      -D   : Display details of an array\n"
 "  --detail-platform  : Display hardware/firmware details\n"
+"  --enclosure        : Display disks by physical/bay location\n"
 "  --examine     -E   : Examine superblock on an array component\n"
 "  --examine-bitmap -X: Display contents of a bitmap file\n"
 "  --examine-badblocks: Display list of known bad blocks on device\n"
