@@ -1985,7 +1985,7 @@ static int detail_platform_imsm(int verbose, int enumerate_only, char *controlle
 	return result;
 }
 
-static int export_detail_platform_imsm(int verbose, char *controller_path)
+static int export_detail_print(int verbose, int print, char *controller_path)
 {
 	struct sys_dev *list, *hba;
 	int result=1;
@@ -2013,6 +2013,11 @@ static int export_detail_platform_imsm(int verbose, char *controller_path)
 		print_imsm_capability_export(&entry->orom);
 
 	return result;
+}
+
+static int export_detail_platform_imsm(int verbose, char *controller_path)
+{
+	return export_detail_print(0, 1, controller_path);
 }
 
 #endif
@@ -10604,9 +10609,16 @@ abort:
 	return ret_val;
 }
 
+
+static int brief_detail_platform_imsm(int verbose, char *controller)
+{
+	return export_detail_print(verbose, 0, controller);
+}
+
 const struct platform_ops imsm_platform = {
 	.detail = detail_platform_imsm,
 	.export_detail = export_detail_platform_imsm,
+	.brief_detail = brief_detail_platform_imsm,
 	.name = "imsm",
 };
 #endif /* MDASSEMBLE */

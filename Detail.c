@@ -717,7 +717,7 @@ out:
 	return rv;
 }
 
-int Detail_Platform(const struct platform_ops *platform, int scan, int verbose, int export, char *hwdevice)
+int Detail_Platform(const struct platform_ops *platform, int scan, int verbose, int export, int brief, char *hwdevice)
 {
 	/* display platform capabilities
 	 * 'scan' in this context means iterate over all platform types
@@ -731,6 +731,8 @@ int Detail_Platform(const struct platform_ops *platform, int scan, int verbose, 
 
 	if (platform && export)
 		err = platform->export_detail(verbose, hwdevice);
+	else if (platform && brief)
+		err = platform->brief_detail(verbose, hwdevice);
 	else if (platform)
 		err = platform->detail(verbose, 0, hwdevice);
 	else if (!scan) {
@@ -752,6 +754,8 @@ int Detail_Platform(const struct platform_ops *platform, int scan, int verbose, 
 
 		if (export)
 			err |= (*p)->export_detail(verbose, hwdevice);
+		else if (brief)
+			err |= (*p)->brief_detail(verbose, hwdevice);
 		else
 			err |= (*p)->detail(verbose, 0, hwdevice);
 
