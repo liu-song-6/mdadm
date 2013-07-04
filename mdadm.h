@@ -699,6 +699,7 @@ struct reshape {
 extern const struct platform_ops {
 	int (*detail)(int verbose, int enumerate_only, char *hwdevice);
 	int (*export_detail)(int verbose, char *hwdevice);
+	int (*brief_detail)(int verbose, char *hwdevice);
 	char *name;
 } *platform_list[];
 
@@ -1281,7 +1282,7 @@ extern int Create(struct supertype *st, char *mddev,
 
 extern int Detail(char *dev, struct context *c);
 extern int Detail_Platform(const struct platform_ops *platform, int scan, int verbose,
-			   int export, char *controller_path);
+			   int export, int brief, char *controller_path);
 extern int Query(char *dev);
 extern int ExamineBadblocks(char *devname, int brief, struct supertype *forcest);
 extern int Examine(struct mddev_dev *devlist, struct context *c,

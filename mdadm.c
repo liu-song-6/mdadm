@@ -1511,7 +1511,8 @@ int main(int argc, char *argv[])
 
 			if (scan) {
 				rv = Detail_Platform(NULL, scan, c.verbose,
-						      c.export, controller);
+						     c.export, c.brief,
+						     controller);
 			} else {
 				/* metadata format specific details that
 				 * may be tied to a given controller
@@ -1520,6 +1521,7 @@ int main(int argc, char *argv[])
 					platform = ss->ss->platform;
 					rv = Detail_Platform(platform, scan,
 							     c.verbose, c.export,
+							     c.brief,
 							     controller);
 				}
 				/* detail given enclosure or scan all
@@ -1529,6 +1531,7 @@ int main(int argc, char *argv[])
 					platform = &enclosure_platform;
 					rv |= Detail_Platform(platform, scan,
 							      c.verbose, c.export,
+							      c.brief,
 							      c.enclosure);
 				}
 			}

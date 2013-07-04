@@ -307,8 +307,22 @@ static int export_detail_enclosure(int verbose, char *enclosure_name)
 	return 0;
 }
 
+static int brief_detail_enclosure(int verbose, char *enclosure_name)
+{
+	struct enclosure *e, *enclosure = parse_enclosures();
+	int i = 0;
+
+	for (e = enclosure; e; e = e->next)
+		printf("ENCLOSURE enclosure%d id=%s\n", i++, e->id);
+
+	free_enclosure(enclosure);
+	
+	return 0;
+}
+
 const struct platform_ops enclosure_platform = {
 	.detail = detail_platform_enclosure,
 	.export_detail = export_detail_enclosure,
+	.brief_detail = brief_detail_enclosure,
 	.name = "enclosure",
 };
