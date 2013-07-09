@@ -1351,6 +1351,8 @@ extern void enable_fds(int devices);
 extern int parse_auto(char *str, char *msg, int config);
 extern struct mddev_ident *conf_get_ident(char *dev);
 extern struct mddev_dev *conf_get_devs(void);
+extern struct mddev_dev *conf_get_enclosure_devs(char *id);
+extern void conf_put_enclosure_devs(struct mddev_dev *devs);
 extern int conf_test_dev(char *devname);
 extern int conf_test_metadata(const char *version, struct dev_policy *pol, int is_homehost);
 extern struct createinfo *conf_get_create_info(void);
