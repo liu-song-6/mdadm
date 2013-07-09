@@ -77,7 +77,7 @@ char DefaultAltConfFile[] = CONFFILE2;
 char DefaultAltConfDir[] = CONFFILE2 ".d";
 
 enum linetype { Devices, Array, Mailaddr, Mailfrom, Program, CreateDev,
-		Homehost, HomeCluster, AutoMode, Policy, PartPolicy, LTEnd };
+		Homehost, HomeCluster, AutoMode, Policy, PartPolicy, Enclosures, LTEnd };
 char *keywords[] = {
 	[Devices]  = "devices",
 	[Array]    = "array",
@@ -90,6 +90,7 @@ char *keywords[] = {
 	[AutoMode] = "auto",
 	[Policy]   = "policy",
 	[PartPolicy]="part-policy",
+	[Enclosures] = "enclosure",
 	[LTEnd]    = NULL
 };
 
@@ -115,6 +116,12 @@ struct conf_dev {
 	struct conf_dev *next;
 	char *name;
 } *cdevlist = NULL;
+
+struct conf_enclosure {
+	struct conf_enclosure *next;
+	char *name;
+	char *id;
+} *edevlist = NULL;
 
 struct mddev_dev *load_partitions(void)
 {
@@ -506,6 +513,28 @@ void arrayline(char *line)
 	}
 }
 
+static void enclosureline(char *line)
+{
+	char *name = NULL, *id = NULL;
+	char *w;
+
+	for (w = dl_next(line); w != line; w = dl_next(w)) {
+		if (strchr(w, '=') == NULL)
+			name = w;
+		if (strncasecmp(w, "id=", 3) == 0)
+			id = w+3;
+	}
+
+	if (name && id) {
+		struct conf_enclosure *e = xmalloc(sizeof(*e));
+
+		e->name = xstrdup(name);
+		e->id = xstrdup(id);
+		e->next = edevlist;
+		edevlist = e;
+	}
+}
+
 static char *alert_email = NULL;
 void mailline(char *line)
 {
@@ -724,6 +753,9 @@ void conf_file(FILE *f)
 			break;
 		case Array:
 			arrayline(line);
+			break;
+		case Enclosures:
+			enclosureline(line);
 			break;
 		case Mailaddr:
 			mailline(line);
@@ -979,6 +1011,38 @@ struct mddev_dev *conf_get_devs()
 	}
 
 	return dlist;
+}
+
+extern struct mddev_dev *enclosure_get_devs(char *id);
+
+struct mddev_dev *conf_get_enclosure_devs(char *enclosure_id)
+{
+	struct conf_enclosure *e;
+	struct mddev_dev *dv;
+
+	load_conffile();
+
+	for (e = edevlist; e; e = e->next)
+		if (strcmp(e->name, enclosure_id) == 0)
+			break;
+
+	dv = enclosure_get_devs(e ? e->id : enclosure_id);
+	if (!e && !dv && strncmp("encl", enclosure_id, 4) == 0)
+		pr_err("No enclosure name '%s' defined in configuration file\n",
+		       enclosure_id);
+	return dv;
+}
+
+void conf_put_enclosure_devs(struct mddev_dev *devs)
+{
+	while (devs) {
+		struct mddev_dev *next;
+
+		next = devs->next;
+		free(devs->devname);
+		free(devs);
+		devs = next;
+	}
 }
 
 int conf_test_dev(char *devname)

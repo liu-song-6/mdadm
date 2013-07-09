@@ -298,16 +298,23 @@ int main(int argc, char *argv[])
 			/* If first option is a device, don't force the mode yet */
 			if (opt == 1) {
 				if (devs_found == 0) {
-					dv = xmalloc(sizeof(*dv));
-					dv->devname = optarg;
-					dv->disposition = devmode;
-					dv->writemostly = writemostly;
-					dv->used = 0;
-					dv->next = NULL;
-					*devlistend = dv;
-					devlistend = &dv->next;
+					dv = conf_get_enclosure_devs(optarg);
+					if (!dv) {
+						dv = xmalloc(sizeof(*dv));
+						dv->devname = optarg;
+						dv->next = NULL;
+					}
 
-					devs_found++;
+					for (; dv; dv = dv->next) {
+						dv->disposition = devmode;
+						dv->writemostly = writemostly;
+						dv->used = 0;
+						*devlistend = dv;
+						devlistend = &dv->next;
+
+						devs_found++;
+					}
+
 					continue;
 				}
 				/* No mode yet, and this is the second device ... */
@@ -354,16 +361,24 @@ int main(int argc, char *argv[])
 				pr_err("Must give -a/--add for devices to add: %s\n", optarg);
 				exit(2);
 			}
-			dv = xmalloc(sizeof(*dv));
-			dv->devname = optarg;
-			dv->disposition = devmode;
-			dv->writemostly = writemostly;
-			dv->used = 0;
-			dv->next = NULL;
-			*devlistend = dv;
-			devlistend = &dv->next;
 
-			devs_found++;
+			dv = conf_get_enclosure_devs(optarg);
+			if (!dv) {
+				dv = xmalloc(sizeof(*dv));
+				dv->devname = optarg;
+				dv->next = NULL;
+			}
+
+			for (; dv; dv = dv->next) {
+				dv->disposition = devmode;
+				dv->writemostly = writemostly;
+				dv->used = 0;
+				*devlistend = dv;
+				devlistend = &dv->next;
+
+				devs_found++;
+			}
+
 			continue;
 		}
 

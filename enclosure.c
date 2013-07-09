@@ -242,6 +242,33 @@ static struct enclosure *parse_enclosures(void)
 	return enc_list;
 }
 
+/* return a mddev_dev for each populated slot in an enclosure */
+struct mddev_dev *enclosure_get_devs(char *id)
+{
+	struct enclosure *enclosure = parse_enclosures(), *e;
+	struct mddev_dev *dlist = NULL, **pos = &dlist;
+	struct slot *s;
+
+	for (e = enclosure; e; e = e->next)
+		if (strcmp(e->id, id) == 0)
+			break;
+
+	for (s = e ? e->slot : NULL; s; s = s->next) {
+		struct mddev_dev *d;
+
+		if (!s->devname)
+			continue;
+		d = xcalloc(1, sizeof(*d));
+		xasprintf(&d->devname, "/dev/%s", s->devname);
+		*pos = d;
+		pos = &d->next;
+	}
+	free_enclosure(enclosure);
+
+	return dlist;
+
+}
+
 static int detail_platform_enclosure(int verbose, int enumerate, char *enclosure_name)
 {
 	struct enclosure *enclosure = parse_enclosures();
