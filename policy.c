@@ -274,9 +274,17 @@ static int pol_match(struct rule *rule, char *path, char *type)
 
 	while (rule) {
 		if (rule_is_path(rule)) {
+			char *value = rule->value;
+			char enc_desc[256];
+
+			if (rule->name == rule_slot &&
+			    conf_get_enclosure_glob(value, enc_desc,
+						    sizeof(enc_desc)))
+			    value = enc_desc;
+
 			if (pathok == 0)
 				pathok = -1;
-			if (path && fnmatch(rule->value, path, 0) == 0)
+			if (path && fnmatch(value, path, 0) == 0)
 				pathok = 1;
 		}
 		if (rule->name == rule_type) {
@@ -848,6 +856,7 @@ static struct rule *find_path_rule(struct rule *rule)
 int write_rule(struct rule *rule, int fd, int force_part)
 {
 	char line[1024];
+	char enc_desc[256];
 	struct rule *path_rule = find_path_rule(rule);
 	char *typ = find_rule(rule, rule_type);
 	char *slot_path, *pth;
@@ -856,9 +865,12 @@ int write_rule(struct rule *rule, int fd, int force_part)
 		return -1;
 
 	pth = path_rule->value;
-	if (path_rule->name == rule_slot)
+	if (path_rule->name == rule_slot) {
+		if (conf_get_enclosure_glob(path_rule->value, enc_desc,
+					    sizeof(enc_desc)))
+			pth = enc_desc;
 		slot_path = "ID_SLOT";
-	else
+	} else
 		slot_path = "ID_PATH";
 
 	if (force_part)

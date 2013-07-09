@@ -1045,6 +1045,32 @@ void conf_put_enclosure_devs(struct mddev_dev *devs)
 	}
 }
 
+/* this succeeds whether the enclosure is currently attached or not, just
+ * translates enclosure names to ids from the configuration file
+ */
+int conf_get_enclosure_glob(const char *slot_val, char *buf, int len)
+{
+	struct conf_enclosure *e;
+
+	load_conffile();
+	for (e = edevlist; e; e = e->next) {
+		/* slot=<enclosure_name> */
+		if (strcmp(e->name, slot_val) == 0 &&
+		    snprintf(buf, len, "enclosure-%s-slot*", e->id) < len)
+			return 1;
+
+		/* slot=enclosure-<enclosure_name>[-<slot-glob>] */
+		if (snprintf(buf, len, "enclosure-%s", e->name) < len &&
+		    strncmp(slot_val, buf, strlen(buf)) == 0 &&
+		    snprintf(buf, len, "enclosure-%s%s", e->id,
+			     &slot_val[strlen(buf)]) < len)
+			return 1;
+	}
+
+	/* slot= is already a glob */
+	return 0;
+}
+
 int conf_test_dev(char *devname)
 {
 	struct conf_dev *cd;
