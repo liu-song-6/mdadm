@@ -841,12 +841,12 @@ static struct rule *find_path_rule(struct rule *rule)
 }
 
 #define UDEV_RULE_FORMAT \
-"ACTION==\"add\", SUBSYSTEM==\"block\", " \
+"ACTION==\"add|change\", SUBSYSTEM==\"block\", " \
 "ENV{DEVTYPE}==\"%s\", ENV{%s}==\"%s\", " \
 "RUN+=\"" BINDIR "/mdadm --incremental $env{DEVNAME}\"\n"
 
 #define UDEV_RULE_FORMAT_NOTYPE \
-"ACTION==\"add\", SUBSYSTEM==\"block\", " \
+"ACTION==\"add|change\", SUBSYSTEM==\"block\", " \
 "ENV{%s}==\"%s\", " \
 "RUN+=\"" BINDIR "/mdadm --incremental $env{DEVNAME}\"\n"
 
