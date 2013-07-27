@@ -24,6 +24,7 @@
 
 #include	"mdadm.h"
 #include	"dlink.h"
+#include	"sg_io.h"
 #include	<dirent.h>
 #include	<glob.h>
 #include	<fnmatch.h>
@@ -77,7 +78,8 @@ char DefaultAltConfFile[] = CONFFILE2;
 char DefaultAltConfDir[] = CONFFILE2 ".d";
 
 enum linetype { Devices, Array, Mailaddr, Mailfrom, Program, CreateDev,
-		Homehost, HomeCluster, AutoMode, Policy, PartPolicy, Enclosures, LTEnd };
+		Homehost, HomeCluster, AutoMode, Policy, PartPolicy, Enclosures,
+		ScsiMode, LTEnd };
 char *keywords[] = {
 	[Devices]  = "devices",
 	[Array]    = "array",
@@ -91,6 +93,7 @@ char *keywords[] = {
 	[Policy]   = "policy",
 	[PartPolicy]="part-policy",
 	[Enclosures] = "enclosure",
+	[ScsiMode] = "scsimode",
 	[LTEnd]    = NULL
 };
 
@@ -122,6 +125,22 @@ struct conf_enclosure {
 	char *name;
 	char *id;
 } *edevlist = NULL;
+
+struct conf_scsimode {
+	struct conf_scsimode *next;
+	int strict;
+	struct mode_domain {
+		struct mode_domain *next;
+		char *name;
+	} *domains;
+	struct mode_setting {
+		struct mode_setting *next;
+		int page;
+		int subpage;
+		int byte;
+		unsigned char val;
+	} *settings;
+} *scsimodelist;
 
 struct mddev_dev *load_partitions(void)
 {
@@ -535,6 +554,99 @@ static void enclosureline(char *line)
 	}
 }
 
+static void scsimodeline(char *line)
+{
+	char *w;
+	struct conf_scsimode *mode = xmalloc(sizeof(*mode));
+	struct mode_setting **s_pos = &mode->settings;
+
+	mode->domains = NULL;
+	mode->settings = NULL;
+	mode->strict = 0;
+	for (w = dl_next(line); w != line; w = dl_next(w)) {
+		if (strncasecmp(w, "domain=", 7) == 0) {
+			struct mode_domain *d = xmalloc(sizeof(*d));
+
+			d->name = xstrdup(w+7);
+			d->next = mode->domains;
+			mode->domains = d;
+		} else if (strncasecmp(w, "strict", 6) == 0) {
+			mode->strict = 1;
+		} else {
+			char *start, *end;
+			char sep[] = "..=";
+			int fields[4];
+			size_t i;
+
+			start = w;
+			for (i = 0; i < sizeof(sep); i++) {
+				fields[i] = strtoul(start, &end, 0);
+				if (end && end > start && *end == sep[i]) {
+					start = end+1;
+				} else
+					break;
+			}
+
+			if (i < sizeof(sep))
+				pr_err("unrecognized format for SCSIMODE line: %s\n", w);
+			else {
+				struct mode_setting *s = xmalloc(sizeof(*s));
+				struct mode_setting *insert;
+
+				s->page = fields[0];
+				s->subpage = fields[1];
+				s->byte = fields[2];
+				s->val = fields[3];
+
+				/* keep pages adjacent, as we will apply
+				 * entire pages at a time
+				 */
+				for (insert = mode->settings; insert; insert = insert->next) {
+					if (insert->next == NULL)
+						break;
+					if (insert->next->page == s->page &&
+					    insert->next->subpage == s->subpage)
+						continue;
+					if (insert->page == s->page &&
+					    insert->subpage == s->subpage)
+						break;
+				}
+
+				if (insert) {
+					s->next = insert->next;
+					insert->next = s;
+				} else {
+					s->next = NULL;
+					while (*s_pos)
+						s_pos = &(*s_pos)->next;
+					*s_pos = s;
+					s_pos = &s->next;
+				}
+			}
+		}
+	}
+
+	if (mode->domains && mode->settings) {
+		mode->next = scsimodelist;
+		scsimodelist = mode;
+	} else {
+		struct mode_domain *d;
+		struct mode_setting *s;
+
+		while (mode->domains) {
+			d = mode->domains->next;
+			free(mode->domains);
+			mode->domains = d;
+		}
+		while (mode->settings) {
+			s = mode->settings->next;
+			free(mode->settings);
+			mode->settings = s;
+		}
+		free(mode);
+	}
+}
+
 static char *alert_email = NULL;
 void mailline(char *line)
 {
@@ -756,6 +868,9 @@ void conf_file(FILE *f)
 			break;
 		case Enclosures:
 			enclosureline(line);
+			break;
+		case ScsiMode:
+			scsimodeline(line);
 			break;
 		case Mailaddr:
 			mailline(line);
@@ -1257,6 +1372,80 @@ struct mddev_ident *conf_match(struct supertype *st,
 		match = array_list;
 	}
 	return match;
+}
+
+static int apply_mode(struct mdinfo *info, struct mode_setting *settings)
+{
+	struct mode_setting *s = settings;
+	struct scsi_mode_sense_data data;
+	__u8 mode_buf[512];
+	int errors = 0;
+
+	for (s = settings; s; s = s->next) {
+		__u8 *mode_page;
+		char devt[22];
+		int fd, rc;
+
+		sprintf(devt, "%d:%d",
+			info->disk.major,
+			info->disk.minor);
+		fd = dev_open(devt, O_RDWR);
+
+		rc = scsi_mode_sense(fd, s->page, s->subpage, &data,
+				     mode_buf, sizeof(mode_buf));
+		mode_page = to_mode_page(mode_buf, &data);
+		for (;;) {
+
+			mode_page[s->byte] = s->val;
+			if (s->next &&
+			    s->next->page == s->page &&
+			    s->next->subpage == s->subpage)
+				s = s->next;
+			else
+				break;
+		}
+		if (rc == 0)
+			rc = scsi_mode_select(fd, 1, 1, &data, mode_buf);
+		if (rc)
+			errors++;
+		close(fd);
+	}
+
+	return errors;
+}
+
+int conf_apply_scsimode(struct mdinfo *info, struct dev_policy *pol)
+{
+	struct conf_scsimode *mode;
+	int err = 0;
+
+	load_conffile();
+
+	pol = pol_find(pol, pol_domain);
+	if (!scsimodelist || !pol)
+		return 0;
+
+	for (mode = scsimodelist; mode; mode = mode->next) {
+		struct mode_domain *domain = mode->domains;
+		struct dev_policy *p;
+		int found = 0;
+
+		for (domain = mode->domains; domain; domain = domain->next) {
+			pol_for_each(p, pol, NULL) {
+				if (strcmp(p->value, domain->name) == 0) {
+					err += apply_mode(info, mode->settings);
+					found = 1;
+					break;
+				}
+			}
+			if (found)
+				break;
+		}
+		if (mode->strict && err)
+			return err;
+	}
+
+	return 0;
 }
 
 int conf_verify_devnames(struct mddev_ident *array_list)

@@ -1376,6 +1376,7 @@ extern struct mddev_ident *conf_match(struct supertype *st,
 				      struct mdinfo *info,
 				      char *devname,
 				      int verbose, int *rvp);
+extern int conf_apply_scsimode(struct mdinfo *info, struct dev_policy *pol);
 extern int experimental(void);
 
 extern void free_line(char *line);

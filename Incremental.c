@@ -194,6 +194,15 @@ int Incremental(struct mddev_dev *devlist, struct context *c,
 	policy = disk_policy(&dinfo);
 	have_target = policy_check_path(&dinfo, &target_array);
 
+	/* before taking any action on the disk check if we need to modify settings */
+	if (conf_apply_scsimode(&dinfo, policy) != 0) {
+		if (c->verbose >= 0)
+			pr_err("%s failed to apply scsi mode settings\n",
+			       devname);
+		rv = 2;
+		goto out;
+	}
+
 	if (st == NULL && (st = guess_super_type(dfd, guess_array)) == NULL) {
 		if (c->verbose >= 0)
 			pr_err("no recognisable superblock on %s.\n",
