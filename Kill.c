@@ -28,6 +28,23 @@
 #include	"mdadm.h"
 #include	"md_u.h"
 #include	"md_p.h"
+#include	"part.h"
+
+int KillMBR(int fd)
+{
+	struct MBR *null_mbr;
+
+	null_mbr = xmalloc(sizeof(*null_mbr));
+	memset(null_mbr, 0, sizeof(*null_mbr));
+	lseek(fd, 0, 0);
+	if (write(fd, null_mbr, sizeof(*null_mbr)) != sizeof(*null_mbr)) {
+		free(null_mbr);
+		return 1;
+	}
+	free(null_mbr);
+	fsync(fd);
+	return 0;
+}
 
 int Kill(char *dev, struct supertype *st, int force, int verbose, int noexcl)
 {
@@ -76,6 +93,11 @@ int Kill(char *dev, struct supertype *st, int force, int verbose, int noexcl)
 			rv = 0;
 		}
 	}
+
+	if (KillMBR(fd))
+		if (verbose >=0)
+			pr_err("Cannot clear MBR on %s\n", dev);
+
 	close(fd);
 	return rv;
 }
