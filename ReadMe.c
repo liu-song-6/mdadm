@@ -28,7 +28,7 @@
 #define VERSION "3.3.4"
 #endif
 #ifndef VERS_DATE
-#define VERS_DATE "3rd August 2015"
+#define VERS_DATE "3rd September 2015"
 #endif
 char Version[] = "mdadm - v" VERSION " - " VERS_DATE "\n";
 

@@ -1,7 +1,7 @@
 Summary:     mdadm is used for controlling Linux md devices (aka RAID arrays)
 Name:        mdadm
-Version:     3.3.4
-Release:     1
+Version:     3.3.4.merge.2015.12.08
+Release:     6
 Source:      http://www.kernel.org/pub/linux/utils/raid/mdadm/mdadm-%{version}.tar.gz
 URL:         http://neil.brown.name/blog/mdadm
 License:     GPL
@@ -37,8 +37,12 @@ rm -rf $RPM_BUILD_ROOT
 %doc TODO ChangeLog mdadm.conf-example COPYING
 %{_sbindir}/mdadm
 %{_sbindir}/mdmon
-/usr/lib/udev/rules.d/63-md-raid-arrays.rules
-/usr/lib/udev/rules.d/64-md-raid-assembly.rules
+/lib/mdadm/ses_slot_id
+/lib/udev/forward-scsi-uevents
+/lib/udev/rules.d/62-md-enclosure-slot.rules
+/lib/udev/rules.d/63-md-raid-arrays.rules
+/lib/udev/rules.d/64-md-raid-assembly.rules
+/usr/share/mdadm/md-ses
 %config(noreplace,missingok)/%{_sysconfdir}/mdadm.conf
 %{_mandir}/man*/md*
 
