@@ -2102,8 +2102,10 @@ static __u64 avail_size1(struct supertype *st, __u64 devsize,
 	if (devsize < 24)
 		return 0;
 
+	if (super == NULL)
+		bmspace = choose_bm_space(devsize);
 #ifndef MDASSEMBLE
-	if (__le32_to_cpu(super->feature_map)&MD_FEATURE_BITMAP_OFFSET) {
+	else if (__le32_to_cpu(super->feature_map)&MD_FEATURE_BITMAP_OFFSET) {
 		/* hot-add. allow for actual size of bitmap */
 		struct bitmap_super_s *bsb;
 		bsb = (struct bitmap_super_s *)(((char*)super)+MAX_SB_SIZE);
@@ -2111,8 +2113,10 @@ static __u64 avail_size1(struct supertype *st, __u64 devsize,
 	}
 #endif
 	/* Allow space for bad block log */
-	if (super->bblog_size)
-		bbspace = __le16_to_cpu(super->bblog_size);
+        if (super && super->bblog_size)
+                bbspace = __le16_to_cpu(super->bblog_size);
+        else
+                bbspace = 8;
 
 	if (st->minor_version < 0)
 		/* not specified, so time to set default */
